@@ -1,0 +1,45 @@
+#!/bin/bash
+# opfwd-client - Client script for executing 1Password CLI commands via the opfwd server
+# Save this script as "op" in your PATH on the Linux VM
+
+# Path to the forwarded Unix socket
+SOCKET_PATH="$HOME/.ssh/opfwd.sock"
+
+# Check if arguments were provided
+if [ $# -eq 0 ]; then
+  echo "Usage: op <command> [arguments]"
+  exit 1
+fi
+
+# Check if the socket exists
+if [ ! -S "$SOCKET_PATH" ]; then
+  echo "Error: Socket $SOCKET_PATH not found."
+  echo "Make sure the SSH connection with socket forwarding is active."
+  echo "Check your SSH config or reconnect with:"
+  echo "ssh -R $SOCKET_PATH:/Users/your-macos-username/.ssh/opfwd.sock your-server"
+  exit 1
+fi
+
+# Check if netcat is installed
+if ! command -v nc &> /dev/null; then
+  echo "Error: 'nc' (netcat) is not installed."
+  echo "Please install it with:"
+  echo "sudo dnf install nmap-ncat"
+  exit 1
+fi
+
+# Combine all arguments into a single command
+CMD="$*"
+
+# Send the command to the socket and display the result
+echo "$CMD" | nc -U "$SOCKET_PATH"
+
+# Check if nc command was successful
+EXIT_CODE=$?
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "Error: Failed to communicate with the opfwd server (exit code: $EXIT_CODE)."
+  echo "Make sure the opfwd server is running on your MacOS machine."
+  exit $EXIT_CODE
+fi
+
+exit 0
