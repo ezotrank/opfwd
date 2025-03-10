@@ -28,6 +28,7 @@ fmt: ## Format code
 
 .PHONY: build
 build: ## Build the binary
+	$(GO) test ./...
 	$(GO) build -o $(BINARY_NAME)
 
 .PHONY: install
