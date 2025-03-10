@@ -114,9 +114,13 @@ Host your-linux-server
     User your-username
     # Forward the Unix domain socket
     RemoteForward /home/your-username/.ssh/opfwd.sock /Users/your-macos-username/.ssh/opfwd.sock
-    # Keep the connection alive
-    ServerAliveInterval 60
+    StreamLocalBindUnlink yes
+    ExitOnForwardFailure yes
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%r@%h:%p
+    ControlPersist yes
     ServerAliveCountMax 3
+    ServerAliveInterval 15
 ```
 
 ## Usage
