@@ -17,26 +17,43 @@ import (
 	"syscall"
 )
 
-// Command whitelist - these are the allowed op commands (exact matches)
-var allowedFullCommands = []string{}
+// Config holds the server configuration
+type Config struct {
+	SocketPath      string
+	AccountFlag     string
+	AllowedCommands []string
+	AllowedPrefixes []string
+}
 
-// Global socket path for cleanup in recovery functions
-var socketPath string
-var accountFlag string
+// Command whitelist configurations
+var (
+	// Global config for access in functions
+	config Config
+)
 
+// validateCommand checks if a command is allowed based on exact matches or prefix matches
 func validateCommand(input string) bool {
 	// Get the full command for validation
 	cmdWithArgs := strings.TrimSpace(input)
 
 	// Check for exact matches against the allowed commands
-	for _, allowed := range allowedFullCommands {
+	for _, allowed := range config.AllowedCommands {
 		if cmdWithArgs == allowed {
 			return true
 		}
 	}
+
+	// Check for prefix matches
+	for _, prefix := range config.AllowedPrefixes {
+		if strings.HasPrefix(cmdWithArgs, prefix) {
+			return true
+		}
+	}
+
 	return false
 }
 
+// handleConnection processes a single client connection
 func handleConnection(conn net.Conn) {
 	// Recover from panics in the connection handler
 	defer func() {
@@ -68,11 +85,16 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
+	executeCommand(conn, input)
+}
+
+// executeCommand runs the op command and pipes output to the connection
+func executeCommand(conn net.Conn, input string) {
 	// Prepare arguments for op command
 	args := []string{}
 
 	// Always add the account flag (it's validated as non-empty in main)
-	args = append(args, "--account", accountFlag)
+	args = append(args, "--account", config.AccountFlag)
 
 	// Add the validated command
 	cmdParts := strings.Fields(input)
@@ -125,8 +147,8 @@ func handleConnection(conn net.Conn) {
 // cleanupSocket handles socket removal during cleanup
 func cleanupSocket() {
 	log.Println("Cleaning up and removing socket...")
-	if socketPath != "" {
-		if err := os.Remove(socketPath); err != nil {
+	if config.SocketPath != "" {
+		if err := os.Remove(config.SocketPath); err != nil {
 			log.Printf("Failed to remove socket during cleanup: %v", err)
 		}
 	}
@@ -144,7 +166,10 @@ func (s *stringSliceFlag) Set(value string) error {
 	return nil
 }
 
-func main() {
+// parseFlags parses command line flags and returns a Config
+func parseFlags() Config {
+	var cfg Config
+
 	// Get default socket path
 	usr, err := user.Current()
 	if err != nil {
@@ -153,38 +178,36 @@ func main() {
 	defaultSocketPath := filepath.Join(usr.HomeDir, ".ssh", "opfwd.sock")
 
 	// Parse command-line arguments
-	flag.StringVar(&socketPath, "socket", defaultSocketPath, "Path to the Unix domain socket")
-	flag.StringVar(&accountFlag, "account", "", "1Password account shorthand to use for all commands (required)")
+	flag.StringVar(&cfg.SocketPath, "socket", defaultSocketPath, "Path to the Unix domain socket")
+	flag.StringVar(&cfg.AccountFlag, "account", "", "1Password account shorthand to use for all commands (required)")
 
-	// Add flag for repeatable allow-command flag
+	// Add flag for repeatable allow-command flag for exact matches
 	var allowCommandFlags stringSliceFlag
-	flag.Var(&allowCommandFlags, "allow-command", "Command to allow (can be specified multiple times)")
+	flag.Var(&allowCommandFlags, "allow-command", "Command to allow (exact match, can be specified multiple times)")
+
+	// Add new flag for prefix-based command matching
+	var allowPrefixFlags stringSliceFlag
+	flag.Var(&allowPrefixFlags, "allow-prefix", "Command prefix to allow (can be specified multiple times)")
 
 	flag.Parse()
 
-	// If allowed commands were provided via flags, override the default list
-	if len(allowCommandFlags) > 0 {
-		// Use the commands specified with --allow-command flags
-		allowedFullCommands = allowCommandFlags
-	}
+	// Set allowed commands and prefixes
+	cfg.AllowedCommands = allowCommandFlags
+	cfg.AllowedPrefixes = allowPrefixFlags
 
 	// Validate that account flag is provided
-	if accountFlag == "" {
+	if cfg.AccountFlag == "" {
 		log.Fatalf("Error: --account flag is required. Please provide your 1Password account shorthand.")
 	}
-	flag.Parse()
 
-	// Set up recovery for panics in main
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in main: %v", r)
-			cleanupSocket()
-		}
-	}()
+	return cfg
+}
 
+// setupSocket creates and configures the Unix domain socket
+func setupSocket(socketPath string) (net.Listener, error) {
 	// Check if socket file already exists
 	if _, err := os.Stat(socketPath); err == nil {
-		log.Fatalf("Socket file already exists at %s. Another server might be running.\n"+
+		return nil, fmt.Errorf("Socket file already exists at %s. Another server might be running.\n"+
 			"If you're sure no other server is running, remove it manually with: rm %s",
 			socketPath, socketPath)
 	}
@@ -192,38 +215,30 @@ func main() {
 	// Ensure the directory exists
 	socketDir := filepath.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, 0700); err != nil {
-		log.Fatalf("Failed to create socket directory: %v", err)
+		return nil, fmt.Errorf("failed to create socket directory: %v", err)
 	}
 
 	// Create Unix domain socket
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
-		log.Fatalf("Failed to listen on socket: %v", err)
+		return nil, fmt.Errorf("failed to listen on socket: %v", err)
 	}
-	defer listener.Close()
 
 	// Set permissions on socket file to only allow the current user
 	if err := os.Chmod(socketPath, 0600); err != nil {
-		log.Printf("Failed to set permissions on socket: %v", err)
-		cleanupSocket()
-		log.Fatalf("Failed to set permissions on socket: %v", err)
+		listener.Close()
+		os.Remove(socketPath)
+		return nil, fmt.Errorf("failed to set permissions on socket: %v", err)
 	}
 
-	log.Printf("Server listening on %s", socketPath)
-	log.Printf("Allowed command prefixes: %v", allowedFullCommands)
-	if accountFlag != "" {
-		log.Printf("Using 1Password account: %s", accountFlag)
-	}
+	return listener, nil
+}
 
-	// Use context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Handle graceful shutdown
+// setupSignalHandling sets up graceful shutdown on signals
+func setupSignalHandling(ctx context.Context, cancel context.CancelFunc, listener net.Listener) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Run a goroutine to handle shutdown signals
 	go func() {
 		<-sigChan
 		log.Println("Shutting down server...")
@@ -231,8 +246,10 @@ func main() {
 		listener.Close()
 		cleanupSocket()
 	}()
+}
 
-	// Accept connections until context is cancelled
+// startServer accepts and handles connections
+func startServer(ctx context.Context, listener net.Listener) {
 	go func() {
 		for {
 			conn, err := listener.Accept()
@@ -245,14 +262,47 @@ func main() {
 				continue
 			}
 
-			// Pass the context to connection handlers
-			go func(c net.Conn) {
-				handleConnection(c)
-			}(conn)
+			go handleConnection(conn)
+		}
+	}()
+}
+
+func main() {
+	// Set up recovery for panics in main
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in main: %v", r)
+			cleanupSocket()
 		}
 	}()
 
-	// Wait for context cancellation
+	// Parse command line flags
+	config = parseFlags()
+
+	// Set up the socket
+	listener, err := setupSocket(config.SocketPath)
+	if err != nil {
+		log.Fatalf("Failed to set up socket: %v", err)
+	}
+	defer listener.Close()
+
+	// Log configuration
+	log.Printf("Server listening on %s", config.SocketPath)
+	log.Printf("Allowed exact commands: %v", config.AllowedCommands)
+	log.Printf("Allowed command prefixes: %v", config.AllowedPrefixes)
+	log.Printf("Using 1Password account: %s", config.AccountFlag)
+
+	// Set up context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Set up signal handling for graceful shutdown
+	setupSignalHandling(ctx, cancel, listener)
+
+	// Start the server
+	startServer(ctx, listener)
+
+	// Wait for context cancellation (i.e., shutdown signal)
 	<-ctx.Done()
 	log.Println("Server shutdown completed")
 }
