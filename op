@@ -31,8 +31,11 @@ fi
 # Combine all arguments into a single command
 CMD="$*"
 
-# Send the command to the socket and display the result
-echo "$CMD" | nc -U "$SOCKET_PATH"
+# Send the command to the socket and capture the result
+RESPONSE=$(echo "$CMD" | nc -U "$SOCKET_PATH")
+
+# Display the result
+echo "$RESPONSE"
 
 # Check if nc command was successful
 EXIT_CODE=$?
@@ -40,6 +43,11 @@ if [ $EXIT_CODE -ne 0 ]; then
   echo "Error: Failed to communicate with the opfwd server (exit code: $EXIT_CODE)."
   echo "Make sure the opfwd server is running on your MacOS machine."
   exit $EXIT_CODE
+fi
+
+# Check if the response contains "[ERROR]"
+if [[ "$RESPONSE" == *"[ERROR]"* ]]; then
+  exit 1
 fi
 
 exit 0
