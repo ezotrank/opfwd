@@ -29,10 +29,10 @@ opfwd provides several key advantages:
 ## Features
 
 - Secure command forwarding via SSH and Unix domain sockets
-- Command whitelisting for enhanced security
+- Command whitelisting for enhanced security with exact and prefix matching
 - Automatic socket handling and cleanup
 - Support for 1Password account selection
-- Customizable allowed commands list
+- Customizable allowed commands list and prefixes
 - Offline functionality (as long as your MacOS has a local vault cache)
 
 ## Installation
@@ -133,15 +133,32 @@ Options:
 
 - `--socket=/path/to/socket` - Socket path (default: ~/.ssh/opfwd.sock)
 - `--account=account` - 1Password account shorthand (required)
-- `--allow-command="command"` - Allowed command (can be specified multiple times)
+- `--allow-command="command"` - Allowed command (exact match, can be specified multiple times)
+- `--allow-prefix="prefix"` - Allowed command prefix (can be specified multiple times)
 
-Example with custom commands:
+Examples:
 
 ```bash
+# Allow exact commands:
 opfwd --account=my-account \
   --allow-command="read op://Personal/SSH/passphrase" \
   --allow-command="read op://Work/API/token"
+
+# Allow commands starting with 'read op://Personal/SSH/'
+opfwd --account=my-account \
+  --allow-prefix="read op://Personal/SSH/"
+
+# Combine exact and prefix matches
+opfwd --account=my-account \
+  --allow-command="read op://Personal/SSH/passphrase" \
+  --allow-prefix="read op://Work/API/"
 ```
+
+**Important Notes on Command Whitelisting:**
+
+- `--allow-command` allows _exact_ matches. This means the full command string, including any arguments, must match exactly.
+- `--allow-prefix` allows commands that _start with_ the specified prefix. This allows more flexibility when the command structure is predictable, but the specific item details might vary. For example, allowing the prefix "read op://Work/" would allow reading any item in the "Work" vault. Be careful when using prefixes as they can potentially expose more secrets than intended.
+- For security best practices, it's recommended to start with specific `--allow-command` rules and only use `--allow-prefix` when necessary, and as restrictively as possible.
 
 ### Connecting to Linux Server
 
@@ -179,10 +196,11 @@ This is particularly valuable in:
 
 ## Security Considerations
 
-- **Command Whitelisting**: By default, only specific commands are allowed. Use `--allow-command` to specify permitted commands.
+- **Command Whitelisting**: By default, only specific commands or command prefixes are allowed. Use `--allow-command` to specify permitted commands for exact matches, and `--allow-prefix` for commands that start with a specific prefix.
 - **Socket Permissions**: The Unix socket is created with 0600 permissions to restrict access to the current user only.
 - **SSH Encryption**: All communication between Linux and MacOS happens over encrypted SSH connections.
-- **No Persistent Storage**: opfwd doesn't store 1Password secrets or session tokens.
+- **No Persistent Storage**: opfwd doesn't store 1Password secrets or session tokens. The 1Password session lives on your macOS machine and is never transmitted to or stored on the Linux client.
+- **Careful Prefix Usage**: When using `--allow-prefix`, ensure the prefix is as specific as possible to limit potential exposure of unintended secrets.
 
 ## Troubleshooting
 
@@ -196,7 +214,7 @@ If you see `Error: Socket not found`, make sure:
 
 ### Command Not Allowed
 
-If you see `Error: Command not allowed`, the command you're trying to execute is not in the whitelist. Add it using `--allow-command` when starting the server.
+If you see `Error: Command not allowed`, the command you're trying to execute is not in the whitelist. Add it using `--allow-command` for an exact match or `--allow-prefix` to allow commands starting with a specific prefix when starting the server.
 
 ### Socket Already Exists
 
@@ -211,7 +229,7 @@ If you see `Error: 'nc' (netcat) is not installed`, follow the installation inst
 
 ## Limitations
 
-- Commands must be explicitly whitelisted for security reasons
+- Commands must be explicitly whitelisted for security reasons, either with exact matches or using prefixes.
 - Remote forwarding must be allowed on the SSH server
 - Requires an active SSH connection
 - Your MacOS computer must be running and accessible
