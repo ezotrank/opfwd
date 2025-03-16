@@ -54,13 +54,28 @@ func createMockOpCommand(t *testing.T, tempDir string) {
 	mockOpPath := filepath.Join(tempDir, "op")
 	mockOpContent := `#!/bin/bash
 echo "Executing op with args: $@"
-if [[ "$*" == *"read op://Employee/CONFIG/operator"* ]]; then
-  echo "SECRET_VALUE_123"
+if [[ "$*" == *"account get"* ]]; then
+		# Simulate authentication status check
+		if [[ -f "${HOME}/.op_test_authenticated" ]]; then
+				echo "Account is authenticated"
+				exit 0
+		else
+				echo "[ERROR] account is not signed in" >&2
+				exit 1
+		fi
+elif [[ "$*" == *"signin"* ]]; then
+		# Simulate successful signin
+		mkdir -p "${HOME}"
+		touch "${HOME}/.op_test_authenticated"
+		echo "Signed in to test-account"
+		exit 0
+elif [[ "$*" == *"read op://Employee/CONFIG/operator"* ]]; then
+		echo "SECRET_VALUE_123"
 elif [[ "$*" == *"item create"* ]]; then
-  echo "Item created successfully"
+		echo "Item created successfully"
 else
-  echo "Unrecognized command" >&2
-  exit 1
+		echo "Unrecognized command" >&2
+		exit 1
 fi
 `
 	err := os.WriteFile(mockOpPath, []byte(mockOpContent), 0755)
@@ -77,6 +92,9 @@ fi
 	if err != nil || !strings.Contains(string(output), mockOpPath) {
 		t.Fatalf("Failed to set up mock 'op' command: %v, output: %s", err, output)
 	}
+
+	// Remove any existing authentication marker
+	os.Remove(filepath.Join(os.Getenv("HOME"), ".op_test_authenticated"))
 }
 
 // startTestServer starts a server instance for testing

@@ -90,6 +90,13 @@ func handleConnection(conn net.Conn) {
 
 // executeCommand runs the op command and pipes output to the connection
 func executeCommand(conn net.Conn, input string) {
+	// Check if we're logged in first
+	if err := ensureLoggedIn(); err != nil {
+		log.Printf("Error ensuring login: %v", err)
+		_, _ = conn.Write([]byte(fmt.Sprintf("Error: Could not sign in to 1Password: %v\n", err)))
+		return
+	}
+
 	// Prepare arguments for op command
 	args := []string{}
 
@@ -142,6 +149,33 @@ func executeCommand(conn net.Conn, input string) {
 		log.Printf("Command execution error: %v", err)
 		// Error already sent via stderr pipe
 	}
+}
+
+// ensureLoggedIn checks if we're logged in to 1Password and attempts to log in if not
+func ensureLoggedIn() error {
+	// Try a simple command to check if we're logged in
+	checkCmd := exec.Command("op", "--account", config.AccountFlag, "account", "get")
+
+	// We don't care about stdout, just if it exits successfully
+	if err := checkCmd.Run(); err == nil {
+		// We're already logged in
+		log.Println("1Password account is already authenticated")
+		return nil
+	}
+
+	log.Println("1Password account is not signed in, attempting to sign in")
+
+	// Try to sign in
+	signinCmd := exec.Command("op", "signin", "--account", config.AccountFlag)
+	output, err := signinCmd.CombinedOutput()
+
+	if err != nil {
+		log.Printf("Sign in attempt failed, output: %s", string(output))
+		return fmt.Errorf("failed to sign in to 1Password: %v", err)
+	}
+
+	log.Println("Successfully signed in to 1Password")
+	return nil
 }
 
 // cleanupSocket handles socket removal during cleanup
