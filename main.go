@@ -269,7 +269,7 @@ func setupSocket(socketPath string) (net.Listener, error) {
 }
 
 // setupSignalHandling sets up graceful shutdown on signals
-func setupSignalHandling(ctx context.Context, cancel context.CancelFunc, listener net.Listener) {
+func setupSignalHandling(cancel context.CancelFunc, listener net.Listener) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -331,7 +331,7 @@ func main() {
 	defer cancel()
 
 	// Set up signal handling for graceful shutdown
-	setupSignalHandling(ctx, cancel, listener)
+	setupSignalHandling(cancel, listener)
 
 	// Start the server
 	startServer(ctx, listener)
