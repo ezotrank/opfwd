@@ -34,58 +34,35 @@ opfwd provides several key advantages:
 - Support for 1Password account selection
 - Customizable allowed commands list and prefixes
 - Offline functionality (as long as your MacOS has a local vault cache)
+- Single binary for both server and client operations
 
 ## Installation
 
+### Building from Source
+
+Build the binary:
+
+```bash
+go build -o opfwd main.go
+```
+
 ### MacOS (Server)
 
-1. Build the server:
-
-   ```bash
-   go build -o opfwd main.go
-   ```
-
-2. Install the binary to a location in your PATH:
-   ```bash
-   cp opfwd /usr/local/bin/
-   ```
+Install the binary to a location in your PATH:
+```bash
+cp opfwd /usr/local/bin/
+```
 
 ### Linux (Client)
 
-The client script is included in the repository as `op`. To install it:
-
-1. Copy the script to a location in your PATH:
-
-   ```bash
-   # Copy to your personal bin directory
-   cp op ~/bin/op
-
-   # Or install system-wide (requires root)
-   sudo cp op /usr/local/bin/op
-   ```
-
-2. Make it executable:
-
-   ```bash
-   chmod +x ~/bin/op  # Or /usr/local/bin/op if installed system-wide
-   ```
-
-3. Verify the installation:
-   ```bash
-   which op
-   ```
-
-The script requires `netcat` to be installed on your Linux system. If it's not already installed, you can install it with:
+Install the same binary but rename it to `op`:
 
 ```bash
-# Debian/Ubuntu
-sudo apt install netcat
+# Copy to your personal bin directory
+cp opfwd ~/bin/op
 
-# RHEL/CentOS/Fedora
-sudo dnf install nmap-ncat
-
-# Alpine Linux
-apk add netcat-openbsd
+# Or install system-wide (requires root)
+sudo cp opfwd /usr/local/bin/op
 ```
 
 ### Server Configuration (Linux)
@@ -130,13 +107,13 @@ Host your-linux-server
 Start the server on your MacOS machine with:
 
 ```bash
-opfwd
+opfwd --server
 ```
 
 The server uses a YAML configuration file (default location: `~/.config/opfwd/config.yaml`). You can specify a different config location with:
 
 ```bash
-opfwd --config=/path/to/config.yaml
+opfwd --server --config=/path/to/config.yaml
 ```
 
 Configuration file format:
@@ -183,9 +160,9 @@ allowed_prefixes:
 
 **Important Notes on Command Whitelisting:**
 
-- `--allow-command` allows _exact_ matches. This means the full command string, including any arguments, must match exactly.
-- `--allow-prefix` allows commands that _start with_ the specified prefix. This allows more flexibility when the command structure is predictable, but the specific item details might vary. For example, allowing the prefix "read op://Work/" would allow reading any item in the "Work" vault. Be careful when using prefixes as they can potentially expose more secrets than intended.
-- For security best practices, it's recommended to start with specific `--allow-command` rules and only use `--allow-prefix` when necessary, and as restrictively as possible.
+- `allowed_commands` allows _exact_ matches. This means the full command string, including any arguments, must match exactly.
+- `allowed_prefixes` allows commands that _start with_ the specified prefix. This allows more flexibility when the command structure is predictable, but the specific item details might vary. For example, allowing the prefix "read op://Work/" would allow reading any item in the "Work" vault. Be careful when using prefixes as they can potentially expose more secrets than intended.
+- For security best practices, it's recommended to start with specific `allowed_commands` rules and only use `allowed_prefixes` when necessary, and as restrictively as possible.
 
 ### Connecting to Linux Server
 
@@ -223,11 +200,11 @@ This is particularly valuable in:
 
 ## Security Considerations
 
-- **Command Whitelisting**: By default, only specific commands or command prefixes are allowed. Use `--allow-command` to specify permitted commands for exact matches, and `--allow-prefix` for commands that start with a specific prefix.
+- **Command Whitelisting**: By default, only specific commands or command prefixes are allowed. Use `allowed_commands` to specify permitted commands for exact matches, and `allowed_prefixes` for commands that start with a specific prefix.
 - **Socket Permissions**: The Unix socket is created with 0600 permissions to restrict access to the current user only.
 - **SSH Encryption**: All communication between Linux and MacOS happens over encrypted SSH connections.
 - **No Persistent Storage**: opfwd doesn't store 1Password secrets or session tokens. The 1Password session lives on your macOS machine and is never transmitted to or stored on the Linux client.
-- **Careful Prefix Usage**: When using `--allow-prefix`, ensure the prefix is as specific as possible to limit potential exposure of unintended secrets.
+- **Careful Prefix Usage**: When using `allowed_prefixes`, ensure the prefix is as specific as possible to limit potential exposure of unintended secrets.
 
 ## Troubleshooting
 
@@ -250,10 +227,6 @@ If the server reports `Socket file already exists`, either:
 1. Another opfwd server is already running
 2. A previous server didn't clean up properly. Remove the socket with `rm ~/.ssh/opfwd.sock`
 
-### Netcat Not Installed
-
-If you see `Error: 'nc' (netcat) is not installed`, follow the installation instructions provided in the error message to install netcat on your Linux system.
-
 ## Limitations
 
 - Commands must be explicitly whitelisted for security reasons, either with exact matches or using prefixes.
@@ -266,3 +239,5 @@ If you see `Error: 'nc' (netcat) is not installed`, follow the installation inst
 MIT License
 
 ## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

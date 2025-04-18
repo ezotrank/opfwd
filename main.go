@@ -225,19 +225,6 @@ func getDefaultConfigPath() (string, error) {
 	return filepath.Join(usr.HomeDir, ".config", "opfwd", "config.yaml"), nil
 }
 
-// parseFlags parses command line flags
-func parseFlags() string {
-	defaultConfigPath, err := getDefaultConfigPath()
-	if err != nil {
-		log.Fatalf("Failed to get default config path: %v", err)
-	}
-
-	configPath := flag.String("config", defaultConfigPath, "Path to the config file")
-	flag.Parse()
-
-	return *configPath
-}
-
 // setupSocket creates and configures the Unix domain socket
 func setupSocket(socketPath string) (net.Listener, error) {
 	// Check if socket file already exists
@@ -302,7 +289,8 @@ func startServer(ctx context.Context, listener net.Listener) {
 	}()
 }
 
-func main() {
+// runServer starts the server mode of the application
+func runServer(configPath string) {
 	// Set up recovery for panics in main
 	defer func() {
 		if r := recover(); r != nil {
@@ -310,9 +298,6 @@ func main() {
 			cleanupSocket()
 		}
 	}()
-
-	// Parse command line flags to get config path
-	configPath := parseFlags()
 
 	// Load configuration
 	var err error
@@ -347,4 +332,77 @@ func main() {
 	// Wait for context cancellation (i.e., shutdown signal)
 	<-ctx.Done()
 	log.Println("Server shutdown completed")
+}
+
+// getDefaultSocketPath returns the default path to the socket file
+func getDefaultSocketPath() (string, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("getting current user: %w", err)
+	}
+	return filepath.Join(usr.HomeDir, ".ssh", "opfwd.sock"), nil
+}
+
+// runClient handles the client mode of the application
+func runClient() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: opfwd <command> [arguments]")
+		os.Exit(1)
+	}
+
+	socketPath, err := getDefaultSocketPath()
+	if err != nil {
+		fmt.Printf("Error getting default socket path: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check if the socket exists
+	if _, err := os.Stat(socketPath); err != nil {
+		fmt.Printf("Error: Socket %s not found.\n", socketPath)
+		fmt.Println("Make sure the opfwd server is running and the socket is accessible.")
+		os.Exit(1)
+	}
+
+	// Connect to the socket
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		fmt.Printf("Error connecting to socket: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close()
+
+	// Send the command to the server
+	command := strings.Join(os.Args[1:], " ")
+	if _, err := fmt.Fprintln(conn, command); err != nil {
+		fmt.Printf("Error sending command: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Read and display the response
+	if _, err := io.Copy(os.Stdout, conn); err != nil {
+		fmt.Printf("Error reading response: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func main() {
+	// Define server flag
+	serverMode := flag.Bool("server", false, "Run in server mode")
+	configPath := flag.String("config", "", "Path to the config file (server mode only)")
+	flag.Parse()
+
+	if *serverMode {
+		// If no config path specified, use default
+		if *configPath == "" {
+			defaultPath, err := getDefaultConfigPath()
+			if err != nil {
+				log.Fatalf("Failed to get default config path: %v", err)
+			}
+			*configPath = defaultPath
+		}
+		runServer(*configPath)
+	} else {
+		// Client mode
+		runClient()
+	}
 }
