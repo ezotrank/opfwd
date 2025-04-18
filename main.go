@@ -15,21 +15,49 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds the server configuration
 type Config struct {
-	SocketPath      string
-	AccountFlag     string
-	AllowedCommands []string
-	AllowedPrefixes []string
+	SocketPath      string   `yaml:"socket_path"`
+	Account         string   `yaml:"account"`
+	AllowedCommands []string `yaml:"allowed_commands"`
+	AllowedPrefixes []string `yaml:"allowed_prefixes"`
 }
 
-// Command whitelist configurations
-var (
-	// Global config for access in functions
-	config Config
-)
+// Global config for access in functions
+var config Config
+
+// loadConfig loads configuration from YAML file
+func loadConfig(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, fmt.Errorf("reading config file: %w", err)
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, fmt.Errorf("parsing config file: %w", err)
+	}
+
+	// Validate required fields
+	if cfg.Account == "" {
+		return Config{}, fmt.Errorf("account is required in config")
+	}
+
+	// Set default socket path if not specified
+	if cfg.SocketPath == "" {
+		usr, err := user.Current()
+		if err != nil {
+			return Config{}, fmt.Errorf("getting current user: %w", err)
+		}
+		cfg.SocketPath = filepath.Join(usr.HomeDir, ".ssh", "opfwd.sock")
+	}
+
+	return cfg, nil
+}
 
 // validateCommand checks if a command is allowed based on exact matches or prefix matches
 func validateCommand(input string) bool {
@@ -100,8 +128,8 @@ func executeCommand(conn net.Conn, input string) {
 	// Prepare arguments for op command
 	args := []string{}
 
-	// Always add the account flag (it's validated as non-empty in main)
-	args = append(args, "--account", config.AccountFlag)
+	// Always add the account flag
+	args = append(args, "--account", config.Account)
 
 	// Add the validated command
 	cmdParts := strings.Fields(input)
@@ -154,7 +182,7 @@ func executeCommand(conn net.Conn, input string) {
 // ensureLoggedIn checks if we're logged in to 1Password and attempts to log in if not
 func ensureLoggedIn() error {
 	// Try a simple command to check if we're logged in
-	checkCmd := exec.Command("op", "--account", config.AccountFlag, "account", "get")
+	checkCmd := exec.Command("op", "--account", config.Account, "account", "get")
 
 	// We don't care about stdout, just if it exits successfully
 	if err := checkCmd.Run(); err == nil {
@@ -166,7 +194,7 @@ func ensureLoggedIn() error {
 	log.Println("1Password account is not signed in, attempting to sign in")
 
 	// Try to sign in
-	signinCmd := exec.Command("op", "signin", "--account", config.AccountFlag)
+	signinCmd := exec.Command("op", "signin", "--account", config.Account)
 	output, err := signinCmd.CombinedOutput()
 
 	if err != nil {
@@ -188,53 +216,26 @@ func cleanupSocket() {
 	}
 }
 
-// stringSliceFlag is a custom flag type that can be specified multiple times
-type stringSliceFlag []string
-
-func (s *stringSliceFlag) String() string {
-	return strings.Join(*s, ", ")
-}
-
-func (s *stringSliceFlag) Set(value string) error {
-	*s = append(*s, value)
-	return nil
-}
-
-// parseFlags parses command line flags and returns a Config
-func parseFlags() Config {
-	var cfg Config
-
-	// Get default socket path
+// getDefaultConfigPath returns the default path to the config file
+func getDefaultConfigPath() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
-		log.Fatalf("Failed to get current user: %v", err)
+		return "", fmt.Errorf("getting current user: %w", err)
 	}
-	defaultSocketPath := filepath.Join(usr.HomeDir, ".ssh", "opfwd.sock")
+	return filepath.Join(usr.HomeDir, ".config", "opfwd", "config.yaml"), nil
+}
 
-	// Parse command-line arguments
-	flag.StringVar(&cfg.SocketPath, "socket", defaultSocketPath, "Path to the Unix domain socket")
-	flag.StringVar(&cfg.AccountFlag, "account", "", "1Password account shorthand to use for all commands (required)")
+// parseFlags parses command line flags
+func parseFlags() string {
+	defaultConfigPath, err := getDefaultConfigPath()
+	if err != nil {
+		log.Fatalf("Failed to get default config path: %v", err)
+	}
 
-	// Add flag for repeatable allow-command flag for exact matches
-	var allowCommandFlags stringSliceFlag
-	flag.Var(&allowCommandFlags, "allow-command", "Command to allow (exact match, can be specified multiple times)")
-
-	// Add new flag for prefix-based command matching
-	var allowPrefixFlags stringSliceFlag
-	flag.Var(&allowPrefixFlags, "allow-prefix", "Command prefix to allow (can be specified multiple times)")
-
+	configPath := flag.String("config", defaultConfigPath, "Path to the config file")
 	flag.Parse()
 
-	// Set allowed commands and prefixes
-	cfg.AllowedCommands = allowCommandFlags
-	cfg.AllowedPrefixes = allowPrefixFlags
-
-	// Validate that account flag is provided
-	if cfg.AccountFlag == "" {
-		log.Fatalf("Error: --account flag is required. Please provide your 1Password account shorthand.")
-	}
-
-	return cfg
+	return *configPath
 }
 
 // setupSocket creates and configures the Unix domain socket
@@ -310,8 +311,15 @@ func main() {
 		}
 	}()
 
-	// Parse command line flags
-	config = parseFlags()
+	// Parse command line flags to get config path
+	configPath := parseFlags()
+
+	// Load configuration
+	var err error
+	config, err = loadConfig(configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	// Set up the socket
 	listener, err := setupSocket(config.SocketPath)
@@ -324,7 +332,7 @@ func main() {
 	log.Printf("Server listening on %s", config.SocketPath)
 	log.Printf("Allowed exact commands: %v", config.AllowedCommands)
 	log.Printf("Allowed command prefixes: %v", config.AllowedPrefixes)
-	log.Printf("Using 1Password account: %s", config.AccountFlag)
+	log.Printf("Using 1Password account: %s", config.Account)
 
 	// Set up context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())

@@ -1,0 +1,19 @@
+# Example configuration file for opfwd
+# Default location: ~/.config/opfwd/config.yaml
+
+# 1Password account shorthand (required)
+account: "your-account-shorthand"
+
+# Socket path (optional, defaults to ~/.ssh/opfwd.sock)
+socket_path: "/path/to/your/socket.sock"
+
+# List of exact commands to allow
+allowed_commands:
+  - "read op://Employee/CONFIG/operator"
+  - "read op://Team/Shared/api-key"
+
+# List of command prefixes to allow
+allowed_prefixes:
+  - "item get"
+  - "item list"
+  - "vault list"

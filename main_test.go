@@ -16,7 +16,7 @@ import (
 // TestConfig for integration tests
 type TestConfig struct {
 	socketPath      string
-	accountFlag     string
+	account         string
 	allowedCommands []string
 	allowedPrefixes []string
 }
@@ -40,7 +40,7 @@ func setupTestEnvironment(t *testing.T) TestConfig {
 
 	return TestConfig{
 		socketPath:      socketPath,
-		accountFlag:     "test-account",
+		account:         "test-account",
 		allowedCommands: []string{"read op://Employee/CONFIG/operator"},
 		allowedPrefixes: []string{"item create"},
 	}
@@ -125,7 +125,7 @@ func startTestServer(t *testing.T, cfg TestConfig) (context.CancelFunc, <-chan s
 		// Set up the global config
 		config = Config{
 			SocketPath:      cfg.socketPath,
-			AccountFlag:     cfg.accountFlag,
+			Account:         cfg.account,
 			AllowedCommands: cfg.allowedCommands,
 			AllowedPrefixes: cfg.allowedPrefixes,
 		}

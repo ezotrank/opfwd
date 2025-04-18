@@ -130,32 +130,55 @@ Host your-linux-server
 Start the server on your MacOS machine with:
 
 ```bash
-opfwd --account=your-1password-account
+opfwd
 ```
 
-Options:
-
-- `--socket=/path/to/socket` - Socket path (default: ~/.ssh/opfwd.sock)
-- `--account=account` - 1Password account shorthand (required)
-- `--allow-command="command"` - Allowed command (exact match, can be specified multiple times)
-- `--allow-prefix="prefix"` - Allowed command prefix (can be specified multiple times)
-
-Examples:
+The server uses a YAML configuration file (default location: `~/.config/opfwd/config.yaml`). You can specify a different config location with:
 
 ```bash
-# Allow exact commands:
-opfwd --account=my-account \
-  --allow-command="read op://Personal/SSH/passphrase" \
-  --allow-command="read op://Work/API/token"
+opfwd --config=/path/to/config.yaml
+```
 
-# Allow commands starting with 'read op://Personal/SSH/'
-opfwd --account=my-account \
-  --allow-prefix="read op://Personal/SSH/"
+Configuration file format:
+
+```yaml
+# 1Password account shorthand (required)
+account: "your-1password-account"
+
+# Socket path (optional, defaults to ~/.ssh/opfwd.sock)
+socket_path: "/path/to/socket.sock"
+
+# List of exact commands to allow
+allowed_commands:
+  - "read op://Personal/SSH/passphrase"
+  - "read op://Work/API/token"
+
+# List of command prefixes to allow
+allowed_prefixes:
+  - "read op://Personal/SSH/"
+  - "read op://Work/API/"
+```
+
+Example configurations:
+
+```yaml
+# Allow specific commands only
+account: "my-account"
+allowed_commands:
+  - "read op://Personal/SSH/passphrase"
+  - "read op://Work/API/token"
+
+# Allow commands with specific prefixes
+account: "my-account"
+allowed_prefixes:
+  - "read op://Personal/SSH/"
 
 # Combine exact and prefix matches
-opfwd --account=my-account \
-  --allow-command="read op://Personal/SSH/passphrase" \
-  --allow-prefix="read op://Work/API/"
+account: "my-account"
+allowed_commands:
+  - "read op://Personal/SSH/passphrase"
+allowed_prefixes:
+  - "read op://Work/API/"
 ```
 
 **Important Notes on Command Whitelisting:**
@@ -218,7 +241,7 @@ If you see `Error: Socket not found`, make sure:
 
 ### Command Not Allowed
 
-If you see `Error: Command not allowed`, the command you're trying to execute is not in the whitelist. Add it using `--allow-command` for an exact match or `--allow-prefix` to allow commands starting with a specific prefix when starting the server.
+If you see `Error: Command not allowed`, the command you're trying to execute is not in the whitelist. Add it to your configuration file under either `allowed_commands` for an exact match or `allowed_prefixes` to allow commands starting with a specific prefix.
 
 ### Socket Already Exists
 
