@@ -10,8 +10,10 @@ GO ?= go
 GOLANGCI_LINT_VERSION ?= v1.55.2
 
 # Project metadata
-PROJECT_NAME ?= opfwd.out
-BINARY_NAME ?= $(PROJECT_NAME)
+PROJECT_NAME ?= opfwd
+BINARY_LINUX ?= $(PROJECT_NAME).linux
+BINARY_DARWIN ?= $(PROJECT_NAME).darwin
+INSTALL_DIR ?= $(HOME)/.local/bin
 
 .PHONY: dev-deps-install
 dev-deps-install: ## Install development dependencies
@@ -27,14 +29,16 @@ fmt: ## Format code
 	go fmt ./...
 
 .PHONY: build
-build: ## Build the binary
+build: ## Build the binary for Linux and Darwin (arm64)
 	$(GO) test ./...
-	$(GO) build -o $(BINARY_NAME)
+	GOOS=linux GOARCH=arm64 $(GO) build -o $(BINARY_LINUX)
+	GOOS=darwin GOARCH=arm64 $(GO) build -o $(BINARY_DARWIN)
 
 .PHONY: install
-install: ## Install the binary
-	$(GO) install
+install: build ## Install the binaries to ~/.local/bin (overwrites existing files)
+	mkdir -p $(INSTALL_DIR)
+	cp -f $(BINARY_LINUX) $(BINARY_DARWIN) $(INSTALL_DIR)/
 
 .PHONY: clean
 clean: ## Remove build artifacts
-	rm -f $(BINARY_NAME)
+	rm -f $(BINARY_LINUX) $(BINARY_DARWIN)
