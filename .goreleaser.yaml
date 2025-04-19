@@ -53,6 +53,8 @@ brews:
     repository:
       owner: ezotrank
       name: homebrew-tools
+      branch: master
+      token: "{{ .Env.HOMEBREW_TOOLS_ACCESS_TOKEN }}"
     install: |
       bin.install "opfwd"
     test: |
