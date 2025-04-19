@@ -49,6 +49,21 @@ brews:
     test: |
       assert_match version.to_s, shell_output("#{bin}/opfwd --version")
 
+nfpms:
+  - package_name: opfwd
+    homepage: https://github.com/ezotrank/opfwd
+    maintainer: Maksim Kremenev <ezo@kremenev.com>
+    description: "1Password CLI Forwarding tool for seamless access from remote Linux machines"
+    vendor: ezotrank
+    license: MIT
+    formats:
+      - rpm
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/opfwd/README.md
+
 changelog:
   sort: asc
   filters:
