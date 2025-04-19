@@ -38,6 +38,7 @@ brews:
   - name: opfwd
     homepage: https://github.com/ezotrank/opfwd
     description: "1Password CLI Forwarding tool for seamless access from remote Linux machines"
+    directory: Formula
     repository:
       owner: ezotrank
       name: homebrew-tools
