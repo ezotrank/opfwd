@@ -23,8 +23,12 @@ fmt: ## Format code
 	go fmt ./...
 
 .PHONY: build
-build: ## Build and install the binary using go install
+build: ## Build the binary
 	$(GO) test ./...
+	$(GO) build ./...
+
+.PHONY: install
+install: ## Install the binary
 	$(GO) install ./...
 
 .PHONY: clean
