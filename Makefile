@@ -34,3 +34,13 @@ install: ## Install the binary
 .PHONY: clean
 clean: ## Remove build artifacts
 	$(GO) clean
+
+.PHONY: git-bump-tag
+git-bump-tag: ## Bump minor version and push git tag
+	@CURR_TAG=$$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"); \
+	MAJOR=$$(echo $$CURR_TAG | cut -d. -f1); \
+	MINOR=$$(echo $$CURR_TAG | cut -d. -f2); \
+	PATCH=$$(echo $$CURR_TAG | cut -d. -f3); \
+	NEW_PATCH=$$((PATCH + 1)); \
+	NEW_TAG="$$MAJOR.$$MINOR.$$NEW_PATCH"; \
+	git tag $$NEW_TAG && git push origin $$NEW_TAG
