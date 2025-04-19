@@ -46,6 +46,18 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
+brews:
+  - name: opfwd
+    homepage: https://github.com/ezotrank/opfwd
+    description: "1Password CLI Forwarding tool for seamless access from remote Linux machines"
+    repository:
+      owner: ezotrank
+      name: homebrew-tools
+    install: |
+      bin.install "opfwd"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/opfwd --version")
+
 changelog:
   sort: asc
   filters:
