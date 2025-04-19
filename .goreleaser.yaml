@@ -28,7 +28,7 @@ builds:
     ignore:
       - goos: darwin
         goarch: amd64
-        
+
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -54,7 +54,7 @@ brews:
       owner: ezotrank
       name: homebrew-tools
       branch: master
-      token: "{{ .Env.HOMEBREW_TOOLS_ACCESS_TOKEN }}"
+      token: ${{ secrets.HOMEBREW_TOOLS_ACCESS_TOKEN }}
     install: |
       bin.install "opfwd"
     test: |
