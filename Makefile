@@ -9,12 +9,6 @@ help: ## Show this help message
 GO ?= go
 GOLANGCI_LINT_VERSION ?= v1.55.2
 
-# Project metadata
-PROJECT_NAME ?= opfwd
-BINARY_LINUX ?= $(PROJECT_NAME).linux
-BINARY_DARWIN ?= $(PROJECT_NAME).darwin
-INSTALL_DIR ?= $(HOME)/.local/bin
-
 .PHONY: dev-deps-install
 dev-deps-install: ## Install development dependencies
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
@@ -29,16 +23,10 @@ fmt: ## Format code
 	go fmt ./...
 
 .PHONY: build
-build: ## Build the binary for Linux and Darwin (arm64)
+build: ## Build and install the binary using go install
 	$(GO) test ./...
-	GOOS=linux GOARCH=arm64 $(GO) build -o $(BINARY_LINUX)
-	GOOS=darwin GOARCH=arm64 $(GO) build -o $(BINARY_DARWIN)
-
-.PHONY: install
-install: build ## Install the binaries to ~/.local/bin (overwrites existing files)
-	mkdir -p $(INSTALL_DIR)
-	cp -f $(BINARY_LINUX) $(BINARY_DARWIN) $(INSTALL_DIR)/
+	$(GO) install ./...
 
 .PHONY: clean
 clean: ## Remove build artifacts
-	rm -f $(BINARY_LINUX) $(BINARY_DARWIN)
+	$(GO) clean
