@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"runtime"
+	"runtime/debug"
 	"log"
 	"net"
 	"os"
@@ -18,6 +20,38 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+// Version information
+var (
+	version    = "dev"
+	commit     = "none"
+	buildDate  = ""
+	goVersion  = runtime.Version()
+)
+
+func initVersion() {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+	
+	modified := false
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			commit = setting.Value
+		case "vcs.time":
+			buildDate = setting.Value
+		case "vcs.modified":
+			if setting.Value == "true" {
+				modified = true
+			}
+		}
+	}
+	if modified {
+		commit += "+CHANGES"
+	}
+}
 
 // Config holds the server configuration
 type Config struct {
@@ -386,10 +420,24 @@ func runClient() {
 }
 
 func main() {
-	// Define server flag
+	// Define flags
 	serverMode := flag.Bool("server", false, "Run in server mode")
 	configPath := flag.String("config", "", "Path to the config file (server mode only)")
+	showVersion := flag.Bool("version", false, "Show version information")
 	flag.Parse()
+
+	// Initialize version information
+	initVersion()
+
+	if *showVersion {
+		fmt.Printf("opfwd version %s\n", version)
+		fmt.Printf("Commit: %s\n", commit)
+		if buildDate != "" {
+			fmt.Printf("Build Date: %s\n", buildDate)
+		}
+		fmt.Printf("Go Version: %s\n", goVersion)
+		return
+	}
 
 	if *serverMode {
 		// If no config path specified, use default
