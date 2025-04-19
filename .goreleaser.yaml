@@ -34,18 +34,6 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.ShortCommit}}
 
-archives:
-  - format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Os "darwin" }}arm64
-      {{- else if and (eq .Os "linux") (eq .Arch "arm64") }}aarch64
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-
 brews:
   - name: opfwd
     homepage: https://github.com/ezotrank/opfwd
@@ -54,7 +42,7 @@ brews:
       owner: ezotrank
       name: homebrew-tools
       branch: master
-      token: ${{ secrets.HOMEBREW_TOOLS_ACCESS_TOKEN }}
+      token: "{{ .Env.HOMEBREW_TOOLS_ACCESS_TOKEN }}"
     install: |
       bin.install "opfwd"
     test: |
