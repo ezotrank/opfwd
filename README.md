@@ -38,31 +38,33 @@ opfwd provides several key advantages:
 
 ## Installation
 
-### Building from Source
-
-Build the binary:
-
-```bash
-go build -o opfwd main.go
-```
-
 ### MacOS (Server)
 
-Install the binary to a location in your PATH:
+Install using Homebrew:
 ```bash
-cp opfwd /usr/local/bin/
+brew install ezotrank/tools/opfwd
 ```
 
 ### Linux (Client)
 
-Install the same binary but rename it to `op`:
+Install the RPM package from the latest release. For example:
+```bash
+sudo rpm -i https://github.com/ezotrank/opfwd/releases/download/v0.1.10/opfwd_0.1.10_linux_arm64.rpm
+```
+
+Add this to your `~/.bashrc` to automatically set up the `op` command:
+```bash
+if test -f /usr/bin/opfwd && ! test -f ~/.local/bin/op; then
+    ln -s /usr/bin/opfwd ~/.local/bin/op
+fi
+```
+
+### Building from Source
+
+Alternatively, you can build the binary from source:
 
 ```bash
-# Copy to your personal bin directory
-cp opfwd ~/bin/op
-
-# Or install system-wide (requires root)
-sudo cp opfwd /usr/local/bin/op
+go build -o opfwd main.go
 ```
 
 ### Server Configuration (Linux)
