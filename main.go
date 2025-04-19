@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"runtime"
-	"runtime/debug"
 	"log"
 	"net"
 	"os"
@@ -15,6 +13,8 @@ import (
 	"os/signal"
 	"os/user"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
@@ -23,10 +23,10 @@ import (
 
 // Version information
 var (
-	version    = "dev"
-	commit     = "none"
-	buildDate  = ""
-	goVersion  = runtime.Version()
+	version   = "dev"
+	commit    = "none"
+	buildDate = ""
+	goVersion = runtime.Version()
 )
 
 func initVersion() {
@@ -34,7 +34,7 @@ func initVersion() {
 	if !ok {
 		return
 	}
-	
+
 	modified := false
 	for _, setting := range info.Settings {
 		switch setting.Key {
@@ -332,6 +332,11 @@ func runServer(configPath string) {
 			cleanupSocket()
 		}
 	}()
+
+	// Check if the 'op' command exists
+	if _, err := exec.LookPath("op"); err != nil {
+		log.Fatalf("The 1Password CLI (op) command was not found in your system PATH.\n\nTo install it on macOS:\n\nbrew install 1password-cli\n\nError details: %v", err)
+	}
 
 	// Load configuration
 	var err error
