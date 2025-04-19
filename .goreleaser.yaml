@@ -12,6 +12,8 @@ before:
   hooks:
     # You may remove this if you don't use go modules.
     - go mod tidy
+    # Run tests before building
+    - go test ./...
 
 builds:
   - env:
