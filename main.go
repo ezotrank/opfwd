@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
 
 	"gopkg.in/yaml.v3"
@@ -199,11 +200,20 @@ func executeCommand(conn net.Conn, input string) {
 	}
 
 	// Copy output to connection
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	go func() {
-		_, _ = io.Copy(conn, stdout)
+		defer wg.Done()
+		if _, err := io.Copy(conn, stdout); err != nil {
+			log.Printf("Error copying stdout: %v", err)
+		}
 	}()
 	go func() {
-		_, _ = io.Copy(conn, stderr)
+		defer wg.Done()
+		if _, err := io.Copy(conn, stderr); err != nil {
+			log.Printf("Error copying stderr: %v", err)
+		}
 	}()
 
 	// Wait for the command to complete
@@ -211,6 +221,9 @@ func executeCommand(conn net.Conn, input string) {
 		log.Printf("Command execution error: %v", err)
 		// Error already sent via stderr pipe
 	}
+
+	// Wait for all output to be copied before closing connection
+	wg.Wait()
 }
 
 // ensureLoggedIn checks if we're logged in to 1Password and attempts to log in if not
