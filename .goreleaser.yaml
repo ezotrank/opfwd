@@ -24,6 +24,7 @@ builds:
 
     goarch:
       - arm64
+      - amd64
 
     ignore:
       - goos: darwin
