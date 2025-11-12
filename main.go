@@ -402,10 +402,16 @@ func runClient() {
 		os.Exit(1)
 	}
 
-	socketPath, err := getDefaultSocketPath()
-	if err != nil {
-		fmt.Printf("Error getting default socket path: %v\n", err)
-		os.Exit(1)
+	var socketPath string
+	if val, ok := os.LookupEnv("OPFWD_SOCKET_PATH"); ok && val != "" {
+		socketPath = val
+	} else {
+		if val, err := getDefaultSocketPath(); err != nil {
+			fmt.Printf("Error getting default socket path: %v\n", err)
+			os.Exit(1)
+		} else {
+			socketPath = val
+		}
 	}
 
 	// Check if the socket exists

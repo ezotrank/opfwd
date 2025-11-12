@@ -41,6 +41,7 @@ opfwd provides several key advantages:
 ### MacOS (Server)
 
 Install using Homebrew:
+
 ```bash
 brew install ezotrank/tools/opfwd
 ```
@@ -48,11 +49,13 @@ brew install ezotrank/tools/opfwd
 ### Linux (Client)
 
 Install the RPM package from the latest release. For example:
+
 ```bash
 sudo rpm -i https://github.com/ezotrank/opfwd/releases/download/v0.1.10/opfwd_0.1.10_linux_arm64.rpm
 ```
 
 Add this to your `~/.bashrc` to automatically set up the `op` command:
+
 ```bash
 if test -f /usr/bin/opfwd && ! test -f ~/.local/bin/op; then
     ln -s /usr/bin/opfwd ~/.local/bin/op
@@ -101,6 +104,12 @@ Host your-linux-server
     ServerAliveCountMax 3
     ServerAliveInterval 15
 ```
+
+## Environment Variables
+
+### Client
+
+- `OPFWD_SOCKET_PATH`: Overrides the default socket path (`~/.ssh/opfwd.sock`) for the client to connect to.
 
 ## Usage
 
