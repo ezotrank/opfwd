@@ -27,6 +27,14 @@ build: ## Build the binary
 	$(GO) test ./...
 	$(GO) build ./...
 
+.PHONY: build-macos
+build-macos: ## Build for macOS (arm64)
+	GOOS=darwin GOARCH=arm64 $(GO) build -o bin/opfwd-macos-arm64 ./main.go
+
+.PHONY: build-linux
+build-linux: ## Build for Linux (arm64)
+	GOOS=linux GOARCH=arm64 $(GO) build -o bin/opfwd-linux-arm64 ./main.go
+
 .PHONY: install
 install: ## Install the binary
 	$(GO) install ./...
